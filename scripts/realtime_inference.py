@@ -245,40 +245,94 @@ class ExerciseCoach:
         # Return smoothed average
         smoothed_prob = np.mean(self.correctness_history)
         return smoothed_prob
+
+    def compute_final_score(self, ml_score, angles, exercise_config):
+        """Combine ML score with angle-based assessment"""
+        
+        if ml_score is None:
+            return None
+        
+        # Start with calibrated ML score
+        calibrated_ml = (ml_score - 0.5) / 0.3  # Remap [0.5, 0.8] to [0, 1]
+        calibrated_ml = max(0.0, min(1.0, calibrated_ml))
+        
+        # Compute angle perfection score
+        angle_penalties = []
+        for angle_key, angle_config in exercise_config['key_angles'].items():
+            if angle_key in angles:
+                current = angles[angle_key]
+                target = angle_config['target']
+                tolerance = angle_config['tolerance']
+                
+                diff = abs(current - target)
+                if diff <= tolerance:
+                    penalty = 0.0  # Perfect
+                else:
+                    penalty = (diff - tolerance) / 30.0  # Penalty beyond tolerance
+                
+                angle_penalties.append(min(penalty, 0.5))  # Cap at 50% penalty per angle
+        
+        avg_angle_penalty = np.mean(angle_penalties) if angle_penalties else 0.0
+        angle_score = 1.0 - avg_angle_penalty
+        
+        # Combine: 40% ML + 60% angles (angles more reliable)
+        final_score = (calibrated_ml * 0.4) + (angle_score * 0.6)
+        
+        return final_score
     
     def generate_feedback(self, angles, exercise_config, correctness_prob):
-        """Generate feedback"""
+        """Generate feedback with hybrid scoring"""
         feedback = []
-        
+
+        # --- Step 1: Compute angle-based score ---
+        angle_score = 1.0
+        for angle_key, angle_config in exercise_config['key_angles'].items():
+            if angle_key in angles:
+                current = angles[angle_key]
+                target = angle_config['target']
+                diff = abs(current - target)
+                # Penalty increases with difference
+                angle_score -= (diff / 90.0) * 0.2
+
+        angle_score = max(0, min(1, angle_score))  # Clamp between 0 and 1
+
+        # --- Step 2: Compute hybrid score ---
         if correctness_prob is not None:
-            if correctness_prob > 0.65:
-                feedback.append(('EXCELLENT FORM!', (0, 255, 0)))
-            elif correctness_prob > 0.45:
-                feedback.append(('Good - Minor tweaks', (0, 255, 255)))
-            else:
-                feedback.append(('Needs correction', (0, 0, 255)))
-            
-            feedback.append((f'Score: {correctness_prob:.0%}', (255, 255, 255)))
-        
+            hybrid_score = (correctness_prob * 0.5) + (angle_score * 0.5)
+        else:
+            hybrid_score = angle_score
+
+        # --- Step 3: Feedback based on hybrid score ---
+        if hybrid_score > 0.70:
+            feedback.append(('EXCELLENT FORM!', (0, 255, 0)))
+        elif hybrid_score > 0.50:
+            feedback.append(('Good - Minor tweaks', (0, 255, 255)))
+        else:
+            feedback.append(('Needs correction', (0, 0, 255)))
+
+        feedback.append((f'Score: {hybrid_score:.0%}', (255, 255, 255)))
+
+        # --- Step 4: Detailed angle-specific feedback ---
         for angle_key, angle_config in exercise_config['key_angles'].items():
             if angle_key in angles:
                 current = angles[angle_key]
                 target = angle_config['target']
                 tolerance = angle_config['tolerance']
                 name = angle_config['name']
-                
+
                 diff = abs(current - target)
-                
+
                 if diff <= tolerance:
-                    feedback.append((f'{name}: {current:.0f}deg Perfect!', (0, 255, 0)))
+                    feedback.append((f'{name}: {current:.0f}° Perfect!', (0, 255, 0)))
                 elif diff <= tolerance * 1.5:
                     direction = 'more' if current < target else 'less'
-                    feedback.append((f'{name}: {current:.0f}deg Open {direction}', (0, 255, 255)))
+                    feedback.append((f'{name}: {current:.0f}° — Open {direction}', (0, 255, 255)))
                 else:
                     direction = 'more' if current < target else 'less'
-                    feedback.append((f'{name}: {current:.0f}deg->{target}deg', (0, 0, 255)))
-        
+                    feedback.append((f'{name}: {current:.0f}° -> {target}°', (0, 0, 255)))
+
         return feedback
+
     
     def overlay_reference_pip(self, frame, reference_img):
         """Overlay reference image in top-right corner"""
@@ -413,7 +467,8 @@ class ExerciseCoach:
                 
                 correctness = None
                 if len(self.keypoint_buffer) >= 10:
-                    correctness = self.predict_correctness(self.keypoint_buffer)
+                    ml_score = self.predict_correctness(self.keypoint_buffer)
+                    correctness = self.compute_final_score(ml_score, angles, exercise)
                 
                 feedback = self.generate_feedback(angles, exercise, correctness)
             else:

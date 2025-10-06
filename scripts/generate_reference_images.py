@@ -109,10 +109,10 @@ def generate_all_reference_images(dataset_path="../data/raw/REHAB24-6"):
     # Load segmentation to find "correct" examples
     seg_df = pd.read_csv(dataset_path / "Segmentation.csv", sep=';')
     
-    print("🎨 Generating reference images from dataset...\n")
+    print("Generating reference images from dataset...\n")
     
     for ex_id, (ex_dir, ex_name) in enumerate(exercises.items(), 1):
-        print(f"📸 Processing {ex_name}...")
+        print(f"Processing {ex_name}...")
         
         # Find a correct example from segmentation
         correct_examples = seg_df[
@@ -122,7 +122,7 @@ def generate_all_reference_images(dataset_path="../data/raw/REHAB24-6"):
         ]
         
         if len(correct_examples) == 0:
-            print(f"  ⚠️ No correct examples found for {ex_name}")
+            print(f"No correct examples found for {ex_name}")
             continue
         
         # Get the first correct example
@@ -136,7 +136,7 @@ def generate_all_reference_images(dataset_path="../data/raw/REHAB24-6"):
         joint_files = list(joints_dir.glob(f"{video_id}*.npy"))
         
         if not joint_files:
-            print(f"  ⚠️ No joint file found for {video_id}")
+            print(f"No joint file found for {video_id}")
             continue
         
         # Load joint data
@@ -159,7 +159,7 @@ def generate_all_reference_images(dataset_path="../data/raw/REHAB24-6"):
         # Save
         output_path = output_dir / f"{ex_dir}_{ex_name.replace(' ', '_')}_reference.png"
         cv2.imwrite(str(output_path), stick_img)
-        print(f"  ✅ Saved: {output_path}")
+        print(f"Saved: {output_path}")
         
         # Also create a version with video frame if available
         video_dir = dataset_path / "videos" / ex_dir
@@ -180,9 +180,9 @@ def generate_all_reference_images(dataset_path="../data/raw/REHAB24-6"):
                 
                 output_path_combined = output_dir / f"{ex_dir}_{ex_name.replace(' ', '_')}_with_video.png"
                 cv2.imwrite(str(output_path_combined), combined)
-                print(f"  ✅ Saved combined: {output_path_combined}")
+                print(f"Saved combined: {output_path_combined}")
     
-    print(f"\n✅ All reference images saved to '{output_dir}' directory!")
+    print(f"\nAll reference images saved to '{output_dir}' directory!")
     return output_dir
 
 def create_reference_pose_grid():
@@ -190,7 +190,7 @@ def create_reference_pose_grid():
     
     ref_dir = Path("reference_images")
     if not ref_dir.exists():
-        print("❌ Reference images not found. Run generate_all_reference_images() first.")
+        print("Reference images not found. Run generate_all_reference_images() first.")
         return
     
     # Load all reference images
@@ -214,7 +214,7 @@ def create_reference_pose_grid():
     # Save grid
     output_path = ref_dir / "all_exercises_reference.png"
     cv2.imwrite(str(output_path), grid)
-    print(f"✅ Reference grid saved: {output_path}")
+    print(f"Reference grid saved: {output_path}")
     
     return grid
 
@@ -225,5 +225,5 @@ if __name__ == "__main__":
     # Create combined grid
     create_reference_pose_grid()
     
-    print("\n🎯 You can now use these images in the real-time coach!")
+    print("\nYou can now use these images in the real-time coach!")
     print("   Images are stored in 'reference_images/' folder")
