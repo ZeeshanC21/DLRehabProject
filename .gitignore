@@ -1,0 +1,6 @@
+# Ignore heavy frame folders
+mediapipe_output/frames/
+
+# Still track the rest
+!mediapipe_output/*.json
+!mediapipe_output/*.txt
